@@ -1,0 +1,67 @@
+services:
+  web-potato:
+    container_name: potato
+    build:
+      context: ./potatoapp/
+      dockerfile: Dockerfile
+    restart: always
+  web-dev-potato:
+    container_name: potatodev
+    build:
+      context: ./potatodev/
+      dockerfile: Dockerfile
+    volumes:
+      - /tmp/share:/tmp/share
+    restart: always
+  hitch:
+    image: hitch
+    container_name: hitch
+    volumes:
+      - ${HITCH_CONF}:/etc/hitch/hitch.conf
+      - ${CERT_DIR}:/etc/hitch/certs/
+    ports:
+      - "${HTTPS_PORT}:443"
+    restart: always
+  varnish:
+    image: varnish:6.6.0
+    container_name: varnish
+    volumes:
+      - workdir:/var/lib/varnish
+      - "${VARNISH_VCL}:/etc/varnish/default.vcl"
+    ports:
+      - "${HTTP_PORT}:80"
+    command: "-p default_keep=300"
+    depends_on:
+      - "web-potato"
+    restart: always
+  varnishncsa:
+    image: varnish:6.6.0
+    container_name: varnishncsa
+    volumes:
+      - workdir:/var/lib/varnish
+      - ${LOG_DIR}:/var/log/varnish
+    command:
+      - varnishncsa
+      - -a
+      - -w
+      - /var/log/varnish/${NCSA_LOG}
+    restart: always
+  varnishlog:
+    image: varnish:6.6.0
+    container_name: varnishlog
+    volumes:
+      - workdir:/var/lib/varnish
+      - ${LOG_DIR}:/var/log/varnish
+    command:
+      - varnishlog
+      - -a
+      - -w
+      - /var/log/varnish/${BIN_LOG}
+    restart: always
+
+volumes:
+  workdir:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
